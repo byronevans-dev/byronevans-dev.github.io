@@ -1,11 +1,9 @@
 name: ingest-v2
 on:
   workflow_dispatch:
-    inputs:
-      url:
-        description: Public URL of the catalog HTML or a zip that contains index.html
-        required: true
-        default: https://filebin.net/archive/preservationv2/zip
+  push:
+    paths:
+      - 'payload/v2.b64.*'
 jobs:
   ingest:
     runs-on: ubuntu-latest
@@ -13,34 +11,22 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Download catalog
-        env:
-          SRC_URL: ${{ inputs.url }}
+      - name: Assemble catalog from shards
         run: |
-          set -euo pipefail
-          curl -L --fail --retry 4 -A "Mozilla/5.0" -o /tmp/payload.bin "$SRC_URL"
           python3 - <<'PY'
-          import zipfile
+          import base64, gzip
           from pathlib import Path
-          raw = Path('/tmp/payload.bin').read_bytes()
-          print('downloaded', len(raw), raw[:4])
-          if raw[:2] == b'PK':
-              zpath = Path('/tmp/payload.zip')
-              zpath.write_bytes(raw)
-              with zipfile.ZipFile(zpath) as zf:
-                  names = zf.namelist()
-                  print('zip names', names)
-                  member = next((n for n in names if n.endswith('index.html') or n.endswith('.html')), names[0])
-                  data = zf.read(member)
-          else:
-              data = raw
-          print('catalog bytes', len(data))
-          if len(data) < 200000:
-              raise SystemExit('download too small')
-          text = data.decode('utf-8', errors='replace')
+          parts = sorted(Path('payload').glob('v2.b64.*'))
+          print('parts', [p.name for p in parts])
+          if not parts:
+              raise SystemExit('no shards')
+          b64 = ''.join(p.read_text().strip() for p in parts)
+          html = gzip.decompress(base64.b64decode(b64))
+          print('html', len(html))
+          text = html.decode('utf-8')
           if 'PRESERVATION_DATA' not in text or 'The Preservation Project' not in text:
               raise SystemExit('not a preservation catalog')
-          Path('index.html').write_bytes(data)
+          Path('index.html').write_bytes(html)
           PY
       - name: Commit self-contained app
         run: |
