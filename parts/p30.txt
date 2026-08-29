@@ -1,0 +1,44 @@
+d;
+      if (id) return openDetail(id);
+      if (event.target.closest('#healthReviewButton')) openCatalogMode('review');
+    });
+
+    document.addEventListener('keydown', (event) => {
+      const active = document.activeElement;
+      const typing = active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName);
+      if (event.key === '/' && !typing) {
+        event.preventDefault();
+        const field = ui.view === 'home' ? els.homeSearch : els.search;
+        field.focus();
+        field.select();
+      }
+      if ((event.key === 'n' || event.key === 'N') && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        openEditor();
+      }
+      if (event.key === 'Escape' && els.detailDrawer.classList.contains('open')) closeDetail();
+    });
+  }
+
+  function init() {
+    if (!BASE_MOVIES.length) {
+      els.empty.hidden = false;
+      els.empty.innerHTML = '<strong>Database kon niet worden geladen.</strong><span>De filmlijst ontbreekt in dit bestand.</span>';
+      return;
+    }
+    els.sortSelect.value = ui.sort;
+    const hash = (location.hash || '').replace('#', '');
+    if (['index', 'guide', 'collectie', 'hunt', 'health', 'gids'].includes(hash)) ui.view = hash === 'gids' ? 'guide' : hash;
+    renderYears();
+    updateStorageStatus();
+    initEvents();
+    render();
+    if (!storageAvailable) toast('Browser blokkeert lokale opslag. Gebruik Back-up om wijzigingen te bewaren.', true);
+  }
+
+  init();
+})();
+
+  </script>
+</body>
+</html>
