@@ -11,20 +11,30 @@
   <div id="boot">De kelder gaat open…</div>
   <script>
   (async () => {
-    const parts = ['parts/p00.txt', 'parts/p01.txt', 'parts/p02.txt', 'parts/p03.txt', 'parts/p04.txt', 'parts/p05.txt', 'parts/p06.txt', 'parts/p07.txt', 'parts/p08.txt', 'parts/p09.txt', 'parts/p10.txt', 'parts/p11.txt', 'parts/p12.txt', 'parts/p13.txt', 'parts/p14.txt', 'parts/p15.txt', 'parts/p16.txt', 'parts/p17.txt', 'parts/p18.txt', 'parts/p19.txt', 'parts/p20.txt', 'parts/p21.txt', 'parts/p22.txt', 'parts/p23.txt', 'parts/p24.txt', 'parts/p25.txt', 'parts/p26.txt', 'parts/p27.txt'];
+    const parts = Array.from({length: 31}, (_, i) => 'parts/p' + String(i).padStart(2, '0') + '.txt');
+    const remotes = [
+      'https://cdn.jsdelivr.net/gh/byronevans-dev/the-preservation-project@main/index.html',
+      'https://raw.githubusercontent.com/byronevans-dev/the-preservation-project/main/index.html',
+      'https://cdn.jsdelivr.net/gh/byronevans-dev/byronevans-dev.github.io@3a8aac6cab861a734b50e41c000458d768f8b19d/index.html'
+    ];
+    const looksLikeApp = (html) => html.includes('PRESERVATION_DATA') && html.includes('The Preservation Project');
+    const write = (html) => { document.open(); document.write(html); document.close(); };
     try {
       const texts = await Promise.all(parts.map((p) => fetch(p + '?v=20260829v2', { cache: 'no-store' }).then((r) => {
         if (!r.ok) throw new Error(p);
         return r.text();
       })));
       const html = texts.join('');
-      if (!html.includes('PRESERVATION_DATA') || !html.includes('The Preservation Project')) throw new Error('payload');
-      document.open();
-      document.write(html);
-      document.close();
-    } catch (e) {
-      document.getElementById('boot').innerHTML = 'De app kon niet geladen worden. Hard refresh (Ctrl+Shift+R).';
+      if (looksLikeApp(html)) { write(html); return; }
+    } catch (e) {}
+    for (const url of remotes) {
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        const html = await res.text();
+        if (looksLikeApp(html)) { write(html); return; }
+      } catch (e) {}
     }
+    document.getElementById('boot').innerHTML = 'De app kon niet geladen worden. Hard refresh (Ctrl+Shift+R) of open de repository.';
   })();
   </script>
 </body>
