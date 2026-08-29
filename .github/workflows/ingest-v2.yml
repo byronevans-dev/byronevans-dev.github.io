@@ -1,0 +1,40 @@
+name: ingest-v2
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Public URL of The_Preservation_Project_v2.html
+        required: true
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download catalog
+        env:
+          SRC_URL: ${{ inputs.url }}
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 -A "Mozilla/5.0" -o /tmp/v2.html "$SRC_URL"
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('/tmp/v2.html')
+          data = p.read_bytes()
+          print('bytes', len(data))
+          if len(data) < 200000:
+              raise SystemExit('download too small')
+          text = data.decode('utf-8', errors='replace')
+          if 'PRESERVATION_DATA' not in text or 'The Preservation Project' not in text:
+              raise SystemExit('not a preservation catalog')
+          Path('index.html').write_bytes(data)
+          PY
+      - name: Commit self-contained app
+        run: |
+          git config user.name "byronevans-dev"
+          git config user.email "tha.byronz@gmail.com"
+          git add index.html
+          git diff --cached --quiet && echo 'no change' && exit 0
+          git commit -m "deploy v2 self-contained catalog"
+          git push
